@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Atria: Cyber-Nexus | 全息量子智算星网</title>
+  <!-- 引入 Tailwind CSS -->
+  <script src="vendor/tailwindcss-play.js"></script>
+  <!-- 引入 Three.js 核心库及控制器 -->
+  <script src="vendor/three.min.js"></script>
+  <script src="vendor/OrbitControls.js"></script>
+  <!-- 引入 GSAP 平滑运镜与动画动力学库 -->
+  <script src="vendor/gsap.min.js"></script>
+  <!-- 引入 Chart.js 用于毫秒级微观信道波形 -->
+  <script src="vendor/chart.umd.min.js"></script>
+  <!-- 引入 Lucide 精致科技图标库 -->
+  <script src="vendor/lucide.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #02040a;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      color: #f8fafc;
+    }
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 1;
+    }
+    .hud-glass {
+      background: rgba(8, 14, 28, 0.72);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(56, 189, 248, 0.05);
+    }
+    .hud-glow {
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.35);
+    }
+    .cyber-border-gradient {
+      border-image: linear-gradient(to bottom right, rgba(56, 189, 248, 0.4), rgba(168, 85, 247, 0.1)) 1;
+    }
+    .scrollbar-none::-webkit-scrollbar {
+      display: none;
+    }
+    @keyframes scanline {
+      0% { transform: translateY(-100%); }
+      100% { transform: translateY(1000%); }
+    }
+    .scanline-effect {
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 10px;
+      background: linear-gradient(to bottom, transparent, rgba(56, 189, 248, 0.12), transparent);
+      animation: scanline 8s linear infinite;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body class="select-none">
+
+  <!-- 3D WebGL 视口容器 -->
+  <div id="canvas-container"></div>
+  <div class="scanline-effect"></div>
+
+  <!-- 顶部精密 HUD 导航栏 -->
+  <header class="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+    <div class="hud-glass px-5 py-3 rounded-2xl flex items-center gap-4 pointer-events-auto">
+      <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-400/30 flex items-center justify-center text-cyan-400">
+        <i data-lucide="orbit" class="w-6 h-6 animate-spin" style="animation-duration: 12s;"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm font-bold tracking-widest text-white uppercase font-mono">ATRIA : CYBER-NEXUS</h1>
+          <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 font-mono">VER 4.2 · QUANTUM</span>
+        </div>
+        <p class="text-xs text-slate-400">全息分布式量子智算星网 · 拓扑孪生舱</p>
+      </div>
+    </div>
+
+    <!-- 核心算力与信道遥测指标 -->
+    <div class="hud-glass px-6 py-2.5 rounded-2xl flex items-center gap-7 pointer-events-auto hidden md:flex font-mono text-xs">
+      <div class="flex items-center gap-3">
+        <div class="text-cyan-400"><i data-lucide="cpu" class="w-4 h-4"></i></div>
+        <div>
+          <div class="text-[10px] text-slate-400 tracking-wider">星网总算力 (FLOPS)</div>
+          <div class="text-sm font-bold text-white flex items-baseline gap-1">
+            <span id="stat-flops">128.6</span> <span class="text-xs text-cyan-400">EFLOPS</span>
+          </div>
+        </div>
+      </div>
+      <div class="h-6 w-px bg-white/10"></div>
+      <div class="flex items-center gap-3">
+        <div class="text-purple-400"><i data-lucide="radio" class="w-4 h-4"></i></div>
+        <div>
+          <div class="text-[10px] text-slate-400 tracking-wider">量子相干度 (Coherence)</div>
+          <div class="text-sm font-bold text-white flex items-baseline gap-1">
+            <span id="stat-coherence">99.98</span> <span class="text-xs text-purple-400">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="h-6 w-px bg-white/10"></div>
+      <div class="flex items-center gap-3">
+        <div class="text-emerald-400"><i data-lucide="activity" class="w-4 h-4"></i></div>
+        <div>
+          <div class="text-[10px] text-slate-400 tracking-wider">路由往返延迟 (RTT)</div>
+          <div class="text-sm font-bold text-white flex items-baseline gap-1">
+            <span id="stat-latency">1.82</span> <span class="text-xs text-emerald-400">ms</span>
+          </div>
+        </div>
+      </div>
+      <div class="h-6 w-px bg-white/10"></div>
+      <div class="flex items-center gap-3">
+        <div class="text-blue-400"><i data-lucide="shield-check" class="w-4 h-4"></i></div>
+        <div>
+          <div class="text-[10px] text-slate-400 tracking-wider">拓扑稳态等级</div>
+          <div class="text-sm font-bold text-emerald-400" id="stat-status">稳态运行 (Stable)</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 拓扑演练预设控制 -->
+    <div class="hud-glass px-3 py-2 rounded-2xl flex items-center gap-1.5 pointer-events-auto">
+      <span class="text-xs text-slate-400 px-2 font-mono">预设拓扑:</span>
+      <button onclick="switchTopology('normal')" id="btn-topo-normal" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 transition">超稳态星网</button>
+      <button onclick="switchTopology('overload')" id="btn-topo-overload" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-slate-300 hover:bg-rose-500/20 hover:text-rose-300 border border-transparent transition">张量矩阵过载</button>
+      <button onclick="switchTopology('decoherence')" id="btn-topo-decoherence" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-slate-300 hover:bg-amber-500/20 hover:text-amber-300 border border-transparent transition">信道量子退相干</button>
+      <button onclick="switchTopology('storage_stall')" id="btn-topo-storage" class="px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-slate-300 hover:bg-purple-500/20 hover:text-purple-300 border border-transparent transition">深空存储阻塞</button>
+    </div>
+  </header>
+
+  <!-- 左侧：漫游指南与要塞拓扑矩阵 -->
+  <div class="absolute top-24 left-4 z-20 flex flex-col gap-3 w-64 pointer-events-none">
+    <div class="hud-glass p-4 rounded-2xl pointer-events-auto text-xs text-slate-300 space-y-2">
+      <div class="flex items-center justify-between text-white font-semibold pb-1.5 border-b border-white/10 font-mono">
+        <span class="flex items-center gap-1.5"><i data-lucide="compass" class="w-4 h-4 text-cyan-400"></i> 星空全息航标</span>
+      </div>
+      <p class="text-slate-400">🪐 <strong>空间漫游</strong>：左键按住拖动自由旋转角度</p>
+      <p class="text-slate-400">🔭 <strong>景深推进</strong>：滚轮平滑推进 / 拉远星野</p>
+      <p class="text-slate-400">⚡ <strong>能级解构</strong>：点击空间中的任意要塞与光纤</p>
+      <p class="text-slate-400">🚀 <strong>智能运镜</strong>：大模型将自主导航并锁定目标</p>
+    </div>
+
+    <!-- 拓扑节点图谱 -->
+    <div class="hud-glass p-4 rounded-2xl pointer-events-auto text-xs space-y-2">
+      <div class="text-white font-semibold pb-1.5 border-b border-white/10 flex items-center justify-between font-mono">
+        <span class="flex items-center gap-1.5"><i data-lucide="layers" class="w-4 h-4 text-cyan-400"></i> 智算要塞层级</span>
+      </div>
+      <div class="flex items-center justify-between text-slate-300">
+        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#38bdf8]"></span> 边缘量子传感器</span>
+        <span class="font-mono text-[10px] text-cyan-300/70">Edge-Q</span>
+      </div>
+      <div class="flex items-center justify-between text-slate-300">
+        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-blue-400 shadow-[0_0_8px_#60a5fa]"></span> 神经突触汇聚网关</span>
+        <span class="font-mono text-[10px] text-blue-300/70">Synapse-GW</span>
+      </div>
+      <div class="flex items-center justify-between text-slate-300">
+        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-[0_0_8px_#c084fc]"></span> Atria 中央引力中枢</span>
+        <span class="font-mono text-[10px] text-purple-300/70">Atria-Nexus</span>
+      </div>
+      <div class="flex items-center justify-between text-slate-300">
+        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-indigo-400 shadow-[0_0_8px_#818cf8]"></span> 分布式张量矩阵</span>
+        <span class="font-mono text-[10px] text-indigo-300/70">Tensor-GPU</span>
+      </div>
+      <div class="flex items-center justify-between text-slate-300">
+        <span class="flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"></span> 深空算力信宿池</span>
+        <span class="font-mono text-[10px] text-emerald-300/70">Deep-Sink</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 浮空微观信道能级面板 (Quantum Channel Inspector) -->
+  <div id="inspector-panel" class="absolute bottom-24 left-4 z-20 w-80 hud-glass p-4 rounded-2xl pointer-events-auto transition-all duration-500 transform translate-y-4 opacity-0 pointer-events-none border border-cyan-400/30">
+    <div class="flex items-center justify-between pb-2 border-b border-white/10 mb-3">
+      <div class="flex items-center gap-2">
+        <i data-lucide="gauge" class="w-4 h-4 text-cyan-400"></i>
+        <span class="text-xs font-bold text-white font-mono" id="inspect-title">信道能级解构：航道 #7</span>
+      </div>
+      <button onclick="closeInspector()" class="text-slate-400 hover:text-white transition"><i data-lucide="x" class="w-4 h-4"></i></button>
+    </div>
+    <div class="space-y-2 text-xs font-mono">
+      <div class="flex justify-between text-slate-300">
+        <span class="text-slate-400">传输编码协议:</span> <span class="text-cyan-300 font-bold" id="inspect-proto">Q-QUIC / 800Gbps OTN</span>
+      </div>
+      <div class="flex justify-between text-slate-300">
+        <span class="text-slate-400">当前相干能级:</span> <span class="text-emerald-400 font-bold" id="inspect-coherence">99.98% (相干无损)</span>
+      </div>
+      <div class="flex justify-between text-slate-300">
+        <span class="text-slate-400">瞬时张量吞吐:</span> <span class="text-cyan-400 font-bold" id="inspect-throughput">768.4 Gbps</span>
+      </div>
+      <div class="flex justify-between text-slate-300">
+        <span class="text-slate-400">信道退相干率:</span> <span class="text-emerald-400 font-bold" id="inspect-loss">0.001 %</span>
+      </div>
+      <!-- 动态图表 -->
+      <div class="pt-2">
+        <div class="text-[10px] text-slate-400 mb-1 font-sans">毫秒级光量子流能量密度谱</div>
+        <div class="h-24 w-full bg-slate-950/70 rounded-xl p-1.5 border border-white/5">
+          <canvas id="inspect-chart"></canvas>
+        </div>
+      </div>
+      <div class="pt-2">
+        <button onclick="askAIAboutChannel()" class="w-full py-1.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-400/40 text-center font-medium font-sans transition">
+          调度领航智脑全息诊断
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 底部：时空回溯时间轴控制条 -->
+  <div class="absolute bottom-4 left-4 right-4 md:right-[420px] z-20 hud-glass px-6 py-3 rounded-2xl flex items-center gap-4 pointer-events-auto">
+    <button id="btn-play" onclick="togglePlayTimeline()" class="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-400/40 text-cyan-300 flex items-center justify-center hover:bg-cyan-500/30 transition">
+      <i data-lucide="play" id="icon-play" class="w-4 h-4"></i>
+    </button>
+    <div class="text-xs font-mono text-cyan-300 whitespace-nowrap" id="timeline-time">00:02.000</div>
+    <div class="flex-1 relative flex items-center">
+      <input type="range" id="timeline-slider" min="0" max="100" value="20" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400" oninput="onTimelineChange(this.value)">
+      <!-- 异常事件锚点 -->
+      <div class="absolute left-[38%] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-rose-500 ring-4 ring-rose-500/30 cursor-pointer" title="能级过载激增时刻 (03.8s)"></div>
+      <div class="absolute left-[72%] top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-amber-400 ring-4 ring-amber-400/30 cursor-pointer" title="量子退相干时刻 (07.2s)"></div>
+    </div>
+    <div class="flex items-center gap-2 text-xs text-slate-400 font-mono">
+      <span class="hidden sm:inline">时空巡航:</span>
+      <button id="btn-speed-0.5" onclick="setSpeed(0.5)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300">0.5x</button>
+      <button id="btn-speed-1" onclick="setSpeed(1)" class="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300">1.0x</button>
+      <button id="btn-speed-2" onclick="setSpeed(2)" class="px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300">2.0x</button>
+    </div>
+  </div>
+
+  <!-- 右侧：大模型“星网领航智脑”具身操控舱 -->
+  <aside class="absolute top-20 bottom-4 right-4 z-20 w-full sm:w-96 hud-glass rounded-3xl flex flex-col overflow-hidden pointer-events-auto border border-cyan-400/25 shadow-2xl">
+    <!-- 领航舱头部 -->
+    <div class="px-5 py-4 border-b border-white/10 flex items-center justify-between bg-slate-950/60">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-600 via-indigo-600 to-purple-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25">
+          <i data-lucide="sparkles" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <div class="text-sm font-bold text-white flex items-center gap-2 font-mono">
+            ATRIA CYBER-AI
+            <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse"></span>
+          </div>
+          <div class="text-[11px] text-slate-400">星网领航智脑 · 具身拓扑编排</div>
+        </div>
+      </div>
+      <button onclick="resetCameraView()" title="重置宏观视角" class="text-slate-400 hover:text-cyan-300 p-1.5 rounded-lg hover:bg-white/5 transition">
+        <i data-lucide="maximize-2" class="w-4 h-4"></i>
+      </button>
+    </div>
+
+    <!-- 领航对话记录 -->
+    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-none text-xs leading-relaxed">
+      <div class="flex gap-3">
+        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex-shrink-0 flex items-center justify-center">
+          <i data-lucide="bot" class="w-4 h-4"></i>
+        </div>
+        <div class="space-y-1.5 max-w-[85%]">
+          <div class="bg-slate-900/90 p-3 rounded-2xl rounded-tl-sm border border-white/5 text-slate-200 shadow">
+            指令官您好！我是 Atria 星网领航智脑。当前三轴陀螺仪引力透镜运行稳定，全网 5 座核心算力要塞相干连接通畅。我已接管三维视口控制权，请随时下达拓扑编排与诊断指令。
+          </div>
+          <div class="text-[10px] text-slate-500 font-mono">刚刚 · 矩阵就绪</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快捷调遣指令标签 -->
+    <div class="px-4 py-2 bg-slate-950/70 border-t border-white/5 flex gap-1.5 overflow-x-auto scrollbar-none">
+      <button onclick="sendQuickPrompt('分析张量矩阵集群当前的吞吐能级与丢包状态')" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-white/5 hover:bg-cyan-500/20 hover:text-cyan-300 text-slate-300 border border-white/5 text-[11px] transition">
+        ⚡ 张量矩阵分析
+      </button>
+      <button onclick="sendQuickPrompt('排查深空信宿航道是否存在量子退相干异常')" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-white/5 hover:bg-amber-500/20 hover:text-amber-300 text-slate-300 border border-white/5 text-[11px] transition">
+        📡 量子退相干排查
+      </button>
+      <button onclick="sendQuickPrompt('全面扫描全网拓扑，执行拓扑自动优化')" class="whitespace-nowrap px-2.5 py-1 rounded-lg bg-white/5 hover:bg-purple-500/20 hover:text-purple-300 text-slate-300 border border-white/5 text-[11px] transition">
+        🪐 全息拓扑优化
+      </button>
+    </div>
+
+    <!-- 自愈编排触发条 -->
+    <div id="remedy-bar" class="hidden px-4 py-2.5 bg-gradient-to-r from-emerald-950/70 via-cyan-950/70 to-slate-950/70 border-t border-emerald-400/30 flex items-center justify-between">
+      <div class="flex items-center gap-2 text-emerald-300 text-xs font-mono">
+        <i data-lucide="zap" class="w-4 h-4 text-emerald-400"></i>
+        <span>重路由处方已就绪</span>
+      </div>
+      <button onclick="executeSelfHealing()" class="px-3 py-1 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-500/30 transition flex items-center gap-1 font-mono">
+        一键量子重路由
+      </button>
+    </div>
+
+    <!-- 底部指令输入框 -->
+    <div class="p-3 bg-slate-950/80 border-t border-white/10 flex items-center gap-2">
+      <input type="text" id="user-input" placeholder="下达指令，如：检查信道拥塞并拉近镜头..." class="flex-1 bg-slate-900 border border-white/10 rounded-xl px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-400 transition" onkeydown="if(event.key==='Enter') sendMessage()">
+      <button onclick="sendMessage()" class="w-8 h-8 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 flex items-center justify-center font-bold transition shadow-lg shadow-cyan-400/30">
+        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+      </button>
+    </div>
+  </aside>
+
+  <!-- 3D 渲染与星网交互逻辑 -->
+  <script>
+    lucide.createIcons();
+
+    // -------------------------------------------------------------
+    // 1. WebGL 场景与精密天体机械 (Atria Nexus) 构建
+    // -------------------------------------------------------------
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x02040a, 0.012);
+
+    const camera = new THREE.PerspectiveCamera(58, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(0, 16, 42);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    container.appendChild(renderer.domElement);
+
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.maxDistance = 90;
+    controls.minDistance = 12;
+    controls.autoRotate = true;
+    controls.autoRotateSpeed = 0.4;
+
+    // 灯光体系：深邃蓝紫太空冷光
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    scene.add(ambientLight);
+
+    const coreLight = new THREE.PointLight(0x00f0ff, 3, 60);
+    scene.add(coreLight);
+
+    const purpleLight = new THREE.PointLight(0xa855f7, 2, 50);
+    purpleLight.position.set(-15, 10, -10);
+    scene.add(purpleLight);
+
+    // -------------------------------------------------------------
+    // 2. 中央精密机械：多轴差速陀螺仪能量环 (Gimbal Rings)
+    // -------------------------------------------------------------
+    const nexusGroup = new THREE.Group();
+    scene.add(nexusGroup);
+
+    // 材质定义
+    const metalRingMat = new THREE.MeshStandardMaterial({
+      color: 0x38bdf8,
+      emissive: 0x0284c7,
+      emissiveIntensity: 0.6,
+      metalness: 0.9,
+      roughness: 0.2,
+      wireframe: false
+    });
+
+    const innerGoldRingMat = new THREE.MeshStandardMaterial({
+      color: 0xa855f7,
+      emissive: 0x7e22ce,
+      emissiveIntensity: 0.7,
+      metalness: 0.8,
+      roughness: 0.3
+    });
+
+    // 外环 (Outer Gimbal Ring)
+    const ring1Geo = new THREE.TorusGeometry(6.2, 0.12, 16, 100);
+    const ring1 = new THREE.Mesh(ring1Geo, metalRingMat);
+    nexusGroup.add(ring1);
+
+    // 中环 (Middle Gimbal Ring)
+    const ring2Geo = new THREE.TorusGeometry(4.8, 0.1, 16, 100);
+    const ring2 = new THREE.Mesh(ring2Geo, innerGoldRingMat);
+    nexusGroup.add(ring2);
+
+    // 内环 (Inner Gimbal Ring)
+    const ring3Geo = new THREE.TorusGeometry(3.6, 0.08, 16, 100);
+    const ring3 = new THREE.Mesh(ring3Geo, metalRingMat.clone());
+    ring3.material.color.setHex(0x00f0ff);
+    nexusGroup.add(ring3);
+
+    // 核心量子引力透镜能量体 (二十面体双层晶格)
+    const coreGeo = new THREE.IcosahedronGeometry(2.0, 1);
+    const coreMat = new THREE.MeshStandardMaterial({
+      color: 0x00f0ff,
+      emissive: 0x00f0ff,
+      emissiveIntensity: 1.0,
+      roughness: 0.1,
+      metalness: 0.9
+    });
+    const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+    nexusGroup.add(coreMesh);
+
+    const coreWireGeo = new THREE.IcosahedronGeometry(2.3, 1);
+    const coreWireMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.5 });
+    const coreWireMesh = new THREE.Mesh(coreWireGeo, coreWireMat);
+    nexusGroup.add(coreWireMesh);
+
+    // 冲击波能量光环 (用于过载/自愈时向外动态膨胀)
+    const shockwaveGeo = new THREE.RingGeometry(0.1, 0.6, 64);
+    const shockwaveMat = new THREE.MeshBasicMaterial({
+      color: 0x00f0ff,
+      side: THREE.DoubleSide,
+      transparent: true,
+      opacity: 0
+    });
+    const shockwaveMesh = new THREE.Mesh(shockwaveGeo, shockwaveMat);
+    shockwaveMesh.rotation.x = Math.PI / 2;
+    scene.add(shockwaveMesh);
+
+    // -------------------------------------------------------------
+    // 3. 空间 5 大智算要塞节点与双螺旋管道构建
+    // -------------------------------------------------------------
+    const fortressDefs = [
+      { id: 'edge_sensor', name: '边缘量子传感器阵列 (Edge-Q)', pos: new THREE.Vector3(-20, -5, 10), color: 0x38bdf8, size: 1.4 },
+      { id: 'synapse_gw', name: '神经突触汇聚网关 (Synapse-GW)', pos: new THREE.Vector3(-11, -1, 4), color: 0x60a5fa, size: 1.7 },
+      { id: 'nexus_core', name: 'Atria 中央智算引力枢纽 (Nexus-Core)', pos: new THREE.Vector3(0, 0, 0), color: 0xc084fc, size: 2.2 },
+      { id: 'tensor_matrix', name: '分布式张量矩阵集群 (Tensor-GPU)', pos: new THREE.Vector3(13, 4, -4), color: 0x818cf8, size: 1.9 },
+      { id: 'deep_sink', name: '深空量子算力信宿池 (Deep-Sink)', pos: new THREE.Vector3(22, 7, -12), color: 0x34d399, size: 1.6 }
+    ];
+
+    const fortressMap = {};
+    const interactiveMeshes = [];
+
+    fortressDefs.forEach(def => {
+      const g = new THREE.Group();
+      g.position.copy(def.pos);
+
+      // 发光几何外壳 (八面体科技造型)
+      const octGeo = new THREE.OctahedronGeometry(def.size, 0);
+      const octMat = new THREE.MeshStandardMaterial({
+        color: def.color,
+        emissive: def.color,
+        emissiveIntensity: 0.5,
+        roughness: 0.2,
+        metalness: 0.8
+      });
+      const octMesh = new THREE.Mesh(octGeo, octMat);
+      octMesh.userData = { id: def.id, name: def.name, type: 'fortress' };
+      g.add(octMesh);
+
+      // 外围自转能量轨道
+      const orbitGeo = new THREE.TorusGeometry(def.size * 1.5, 0.04, 8, 48);
+      const orbitMat = new THREE.MeshBasicMaterial({ color: def.color, transparent: true, opacity: 0.5 });
+      const orbitMesh = new THREE.Mesh(orbitGeo, orbitMat);
+      orbitMesh.rotation.x = Math.PI / 3;
+      g.add(orbitMesh);
+
+      scene.add(g);
+      fortressMap[def.id] = { group: g, octMesh, orbitMesh, def };
+      interactiveMeshes.push(octMesh);
+    });
+
+    // 4 大能量光缆管道
+    const conduitConnections = [
+      { from: 'edge_sensor', to: 'synapse_gw', id: 'conduit_edge', name: '边缘感知传输通道' },
+      { from: 'synapse_gw', to: 'nexus_core', id: 'conduit_synapse', name: '突触汇聚超导主干' },
+      { from: 'nexus_core', to: 'tensor_matrix', id: 'conduit_tensor', name: '张量矩阵极速互联总线' },
+      { from: 'tensor_matrix', to: 'deep_sink', id: 'conduit_sink', name: '深空持久沉降光纤' }
+    ];
+
+    const conduitObjects = [];
+
+    conduitConnections.forEach(conn => {
+      const p1 = fortressMap[conn.from].def.pos;
+      const p2 = fortressMap[conn.to].def.pos;
+
+      // 平滑二次贝塞尔能量拱线
+      const mid = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+      mid.y += 3.2; // 优雅的空间流线弧度
+
+      const curve = new THREE.QuadraticBezierCurve3(p1, mid, p2);
+      const tubeGeo = new THREE.TubeGeometry(curve, 40, 0.28, 8, false);
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: 0x091428,
+        emissive: 0x0284c7,
+        emissiveIntensity: 0.3,
+        transparent: true,
+        opacity: 0.5,
+        wireframe: false
+      });
+      const tubeMesh = new THREE.Mesh(tubeGeo, tubeMat);
+      tubeMesh.userData = { id: conn.id, name: conn.name, type: 'conduit' };
+      scene.add(tubeMesh);
+      interactiveMeshes.push(tubeMesh);
+
+      // 每条管道注入 50 颗光量子流束粒子
+      const photonParticles = [];
+      const particleGeo = new THREE.SphereGeometry(0.14, 8, 8);
+      const particleMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff });
+
+      for (let i = 0; i < 50; i++) {
+        const pMesh = new THREE.Mesh(particleGeo, particleMat.clone());
+        scene.add(pMesh);
+        photonParticles.push({
+          mesh: pMesh,
+          progress: i / 50,
+          speed: 0.005 + Math.random() * 0.002
+        });
+      }
+
+      conduitObjects.push({
+        id: conn.id,
+        name: conn.name,
+        mesh: tubeMesh,
+        curve,
+        particles: photonParticles,
+        originalColor: 0x0284c7
+      });
+    });
+
+    // 深空背景星图光点
+    const starCount = 1200;
+    const starGeo = new THREE.BufferGeometry();
+    const starPos = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount * 3; i += 3) {
+      starPos[i] = (Math.random() - 0.5) * 260;
+      starPos[i + 1] = (Math.random() - 0.5) * 260;
+      starPos[i + 2] = (Math.random() - 0.5) * 260;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.6, transparent: true, opacity: 0.5, fog: false });
+    const starField = new THREE.Points(starGeo, starMat);
+    scene.add(starField);
+
+    // -------------------------------------------------------------
+    // 4. 精密动画主循环 (Animation Loop)
+    // -------------------------------------------------------------
+    let clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const elapsed = clock.getElapsedTime();
+      controls.update();
+
+      // 多轴差速自转机械环 (黄金分割比例速度)
+      ring1.rotation.x = elapsed * 0.45;
+      ring1.rotation.y = elapsed * 0.32;
+
+      ring2.rotation.y = -elapsed * 0.55;
+      ring2.rotation.z = elapsed * 0.28;
+
+      ring3.rotation.x = -elapsed * 0.38;
+      ring3.rotation.z = -elapsed * 0.62;
+
+      // 核心二十面体自旋与能量脉动
+      coreMesh.rotation.y += 0.015;
+      coreWireMesh.rotation.y -= 0.01;
+      const pulse = 1 + Math.sin(elapsed * 3) * 0.06;
+      coreMesh.scale.set(pulse, pulse, pulse);
+
+      // 各要塞节点轨道旋转
+      Object.values(fortressMap).forEach((f, idx) => {
+        f.octMesh.rotation.y += 0.01 + idx * 0.003;
+        f.octMesh.rotation.x += 0.005;
+        f.orbitMesh.rotation.z += 0.015;
+      });
+
+      // 光量子流体流动
+      conduitObjects.forEach(cond => {
+        cond.particles.forEach(p => {
+          p.progress += p.speed;
+          if (p.progress > 1) p.progress = 0;
+          const pos = cond.curve.getPoint(p.progress);
+          p.mesh.position.copy(pos);
+        });
+      });
+
+      renderer.render(scene, camera);
+    }
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // -------------------------------------------------------------
+    // 5. 3D 射线交互点选 (Raycaster)
+    // -------------------------------------------------------------
+    const raycaster = new THREE.Raycaster();
+    const mouse = new THREE.Vector2();
+
+    window.addEventListener('click', (e) => {
+      if (e.target.closest('header, aside, .hud-glass, button, input')) return;
+      mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(interactiveMeshes);
+
+      if (intersects.length > 0) {
+        const obj = intersects[0].object;
+        openInspector(obj.userData);
+      }
+    });
+
+    // -------------------------------------------------------------
+    // 6. 微观信道波形面板 (Chart.js)
+    // -------------------------------------------------------------
+    let inspectChart = null;
+
+    function initChart() {
+      const ctx = document.getElementById('inspect-chart').getContext('2d');
+      inspectChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['0ms', '20ms', '40ms', '60ms', '80ms', '100ms', '120ms'],
+          datasets: [{
+            label: '能级相干度 (%)',
+            data: [99.8, 99.9, 99.7, 99.9, 99.8, 99.9, 99.8],
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            tension: 0.35,
+            borderWidth: 1.5,
+            fill: true,
+            pointRadius: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { display: false },
+            y: { display: true, ticks: { color: '#64748b', font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.05)' } }
+          }
+        }
+      });
+    }
+    initChart();
+
+    function openInspector(data) {
+      const panel = document.getElementById('inspector-panel');
+      panel.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-4');
+      panel.classList.add('opacity-100', 'translate-y-0');
+
+      document.getElementById('inspect-title').innerText = `信道解构：${data.name}`;
+
+      if (currentTopology !== 'normal') {
+        document.getElementById('inspect-proto').innerText = 'ROCEv2 / Q-QUIC (过载拥塞)';
+        document.getElementById('inspect-coherence').innerText = '64.5% (退相干警报)';
+        document.getElementById('inspect-throughput').innerText = '14.8 Gbps (断崖下跌)';
+        document.getElementById('inspect-loss').innerText = '8.92 % (高危衰减)';
+        inspectChart.data.datasets[0].borderColor = '#ff0055';
+        inspectChart.data.datasets[0].data = [99.8, 88.0, 62.4, 55.1, 48.0, 64.5, 59.2];
+      } else {
+        document.getElementById('inspect-proto').innerText = 'Q-QUIC / 800Gbps OTN (无损稳态)';
+        document.getElementById('inspect-coherence').innerText = '99.98% (相干无损)';
+        document.getElementById('inspect-throughput').innerText = '768.4 Gbps (满载通畅)';
+        document.getElementById('inspect-loss').innerText = '0.001 % (极佳)';
+        inspectChart.data.datasets[0].borderColor = '#38bdf8';
+        inspectChart.data.datasets[0].data = [99.8, 99.9, 99.7, 99.9, 99.8, 99.9, 99.8];
+      }
+      inspectChart.update();
+    }
+
+    function closeInspector() {
+      const panel = document.getElementById('inspector-panel');
+      panel.classList.add('opacity-0', 'pointer-events-none', 'translate-y-4');
+      panel.classList.remove('opacity-100', 'translate-y-0');
+    }
+
+    function askAIAboutChannel() {
+      sendQuickPrompt('重点诊断此信道的能级衰减与张量阻塞原因');
+    }
+
+    // -------------------------------------------------------------
+    // 7. 拓扑场景切换与视觉状态机
+    // -------------------------------------------------------------
+    let currentTopology = 'normal';
+
+    function resetConduitVisuals() {
+      conduitObjects.forEach(cond => {
+        cond.mesh.material.emissive.setHex(cond.originalColor);
+        cond.particles.forEach(p => {
+          p.mesh.material.color.setHex(0x00f0ff);
+          p.speed = 0.005 + Math.random() * 0.002;
+        });
+      });
+      Object.values(fortressMap).forEach(f => {
+        f.octMesh.material.emissive.setHex(f.def.color);
+      });
+      document.getElementById('stat-flops').innerText = '128.6';
+      document.getElementById('stat-coherence').innerText = '99.98';
+      document.getElementById('stat-latency').innerText = '1.82';
+      document.getElementById('stat-status').innerText = '稳态运行 (Stable)';
+      document.getElementById('stat-status').className = 'text-sm font-bold text-emerald-400';
+      document.getElementById('remedy-bar').classList.add('hidden');
+    }
+
+    function switchTopology(type) {
+      currentTopology = type;
+      resetConduitVisuals();
+
+      ['normal', 'overload', 'decoherence', 'storage'].forEach(k => {
+        const btn = document.getElementById(`btn-topo-${k}`);
+        if (btn) btn.className = 'px-3 py-1.5 rounded-xl text-xs font-medium bg-white/5 text-slate-300 hover:bg-cyan-500/20 hover:text-cyan-300 border border-transparent transition';
+      });
+
+      if (type === 'normal') {
+        document.getElementById('btn-topo-normal').className = 'px-3 py-1.5 rounded-xl text-xs font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 transition';
+        addBotMessage('已重置并校准至【全网超稳态基线】。所有光量子管道无相干损耗，张量矩阵处于最佳算力调度拓扑。');
+        resetCameraView();
+      } else if (type === 'overload') {
+        document.getElementById('btn-topo-overload').className = 'px-3 py-1.5 rounded-xl text-xs font-medium bg-rose-500/20 text-rose-300 border border-rose-500/40 transition';
+        
+        // 张量总线异常：深红色发光电弧
+        const tensorCond = conduitObjects.find(c => c.id === 'conduit_tensor');
+        if (tensorCond) {
+          tensorCond.mesh.material.emissive.setHex(0xff0055);
+          tensorCond.particles.forEach(p => {
+            p.mesh.material.color.setHex(0xff0055);
+            p.speed = 0.001; // 严重拥塞堆积
+          });
+        }
+        document.getElementById('stat-flops').innerText = '32.4';
+        document.getElementById('stat-coherence').innerText = '71.20';
+        document.getElementById('stat-latency').innerText = '18.40';
+        document.getElementById('stat-status').innerText = '高危：张量信道过载';
+        document.getElementById('stat-status').className = 'text-sm font-bold text-rose-400';
+
+        triggerShockwave(new THREE.Vector3(13, 4, -4), 0xff0055);
+        flyToTarget(new THREE.Vector3(13, 4, -4), new THREE.Vector3(18, 12, 10));
+        addBotMessage('🚨 **警报：张量矩阵总线能级超载**！GPU 互联带宽发生拥塞回压，算力吞吐下跌 75%，延迟突增至 18.4ms。摄像机已自主锁定特写故障要塞！', true);
+        document.getElementById('remedy-bar').classList.remove('hidden');
+      } else if (type === 'decoherence') {
+        document.getElementById('btn-topo-decoherence').className = 'px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/40 transition';
+        
+        const synapseCond = conduitObjects.find(c => c.id === 'conduit_synapse');
+        if (synapseCond) {
+          synapseCond.mesh.material.emissive.setHex(0xf59e0b);
+          synapseCond.particles.forEach(p => {
+            p.mesh.material.color.setHex(0xfbbf24);
+            p.speed = 0.002;
+          });
+        }
+        document.getElementById('stat-coherence').innerText = '64.15';
+        document.getElementById('stat-latency').innerText = '9.65';
+        document.getElementById('stat-status').innerText = '警告：量子退相干';
+        document.getElementById('stat-status').className = 'text-sm font-bold text-amber-400';
+
+        triggerShockwave(new THREE.Vector3(-11, -1, 4), 0xf59e0b);
+        flyToTarget(new THREE.Vector3(-11, -1, 4), new THREE.Vector3(-4, 6, 18));
+        addBotMessage('⚠️ **检测到神经突触信道发生量子退相干**！相位抖动超标，数据包校验重传率上升，建议执行量子纠错重路由。', true);
+        document.getElementById('remedy-bar').classList.remove('hidden');
+      } else if (type === 'storage_stall') {
+        document.getElementById('btn-topo-storage').className = 'px-3 py-1.5 rounded-xl text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-500/40 transition';
+        
+        const deepSink = fortressMap['deep_sink'].octMesh;
+        deepSink.material.emissive.setHex(0xa855f7);
+
+        document.getElementById('stat-latency').innerText = '42.8';
+        document.getElementById('stat-status').innerText = '阻塞：深空信宿死锁';
+        document.getElementById('stat-status').className = 'text-sm font-bold text-purple-400';
+
+        triggerShockwave(new THREE.Vector3(22, 7, -12), 0xa855f7);
+        flyToTarget(new THREE.Vector3(22, 7, -12), new THREE.Vector3(28, 14, 2));
+        addBotMessage('🔍 **深空信宿存储池发生 I/O 阻塞**！落盘写入队列溢出，下游算力流水线出现空等死锁。已为您激活微观特写。', true);
+        document.getElementById('remedy-bar').classList.remove('hidden');
+      }
+    }
+
+    // 冲击波扩散特效触发
+    function triggerShockwave(position, hexColor) {
+      shockwaveMesh.position.copy(position);
+      shockwaveMesh.material.color.setHex(hexColor);
+      shockwaveMesh.scale.set(1, 1, 1);
+      shockwaveMesh.material.opacity = 0.9;
+
+      gsap.to(shockwaveMesh.scale, {
+        x: 18, y: 18, z: 18,
+        duration: 1.6,
+        ease: 'power2.out'
+      });
+      gsap.to(shockwaveMesh.material, {
+        opacity: 0,
+        duration: 1.6,
+        ease: 'power2.out'
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 8. 电影级平滑运镜 (Cinematic Fly-to)
+    // -------------------------------------------------------------
+    let autoRotateResumeTimer = null;
+
+    function flyToTarget(lookAtPos, camPos) {
+      controls.autoRotate = false;
+      if (autoRotateResumeTimer) { clearTimeout(autoRotateResumeTimer); autoRotateResumeTimer = null; }
+      gsap.to(camera.position, {
+        x: camPos.x,
+        y: camPos.y,
+        z: camPos.z,
+        duration: 2.0,
+        ease: 'power3.inOut'
+      });
+      gsap.to(controls.target, {
+        x: lookAtPos.x,
+        y: lookAtPos.y,
+        z: lookAtPos.z,
+        duration: 2.0,
+        ease: 'power3.inOut'
+      });
+    }
+
+    function resetCameraView() {
+      flyToTarget(new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 16, 42));
+      autoRotateResumeTimer = setTimeout(() => { controls.autoRotate = true; }, 2200);
+    }
+
+    // -------------------------------------------------------------
+    // 9. 一键自愈与量子重路由 (Self-Healing Re-routing)
+    // -------------------------------------------------------------
+    function executeSelfHealing() {
+      addBotMessage('⚙️ **正在下发量子拓扑重编排指令**：启动自适应信道绕行，平衡各矩阵能级，激发纠错光波！');
+
+      // 机械环协同加速并爆发全场能量波
+      gsap.to([ring1.rotation, ring2.rotation, ring3.rotation], {
+        x: '+=6.28', y: '+=6.28',
+        duration: 1.2,
+        ease: 'power4.inOut'
+      });
+      triggerShockwave(new THREE.Vector3(0, 0, 0), 0x00f0ff);
+
+      setTimeout(() => {
+        switchTopology('normal');
+        addBotMessage('✨ **自愈编排完毕**！张量拥塞已解除，全网相干度回升至 99.98%，总算力跃升至 128.6 EFLOPS。星网重回超稳态！');
+      }, 1400);
+    }
+
+    // -------------------------------------------------------------
+    // 10. 大模型领航智脑交互
+    // -------------------------------------------------------------
+    const chatContainer = document.getElementById('chat-messages');
+
+    // 用户输入转义，防止 HTML 注入
+    function esc(text) {
+      const escMap = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+      return String(text).replace(/[&<>"']/g, c => escMap[c]);
+    }
+
+    function addUserMessage(text) {
+      const div = document.createElement('div');
+      div.className = 'flex gap-3 justify-end';
+      div.innerHTML = `
+        <div class="space-y-1 max-w-[85%]">
+          <div class="bg-cyan-500/20 border border-cyan-400/40 p-3 rounded-2xl rounded-tr-sm text-cyan-100 font-sans">
+            ${esc(text)}
+          </div>
+          <div class="text-[10px] text-slate-500 text-right font-mono">刚刚 · 指令官</div>
+        </div>
+      `;
+      chatContainer.appendChild(div);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function addBotMessage(text, autoHighlight = false) {
+      const div = document.createElement('div');
+      div.className = 'flex gap-3';
+      div.innerHTML = `
+        <div class="w-7 h-7 rounded-lg bg-cyan-500/20 text-cyan-300 flex-shrink-0 flex items-center justify-center">
+          <i data-lucide="bot" class="w-4 h-4"></i>
+        </div>
+        <div class="space-y-1.5 max-w-[85%]">
+          <div class="bg-slate-900/90 p-3 rounded-2xl rounded-tl-sm border border-white/5 text-slate-200 shadow font-sans">
+            ${text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-cyan-300 font-semibold">$1</strong>')}
+          </div>
+          <div class="text-[10px] text-slate-500 font-mono">刚刚 · ATRIA AI</div>
+        </div>
+      `;
+      chatContainer.appendChild(div);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      lucide.createIcons();
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('user-input');
+      const text = input.value.trim();
+      if (!text) return;
+      input.value = '';
+      addUserMessage(text);
+
+      setTimeout(() => {
+        handleAIReasoning(text);
+      }, 600);
+    }
+
+    function sendQuickPrompt(prompt) {
+      addUserMessage(prompt);
+      setTimeout(() => {
+        handleAIReasoning(prompt);
+      }, 500);
+    }
+
+    function handleAIReasoning(query) {
+      if (query.includes('张量') || query.includes('过载') || query.includes('GPU')) {
+        switchTopology('overload');
+      } else if (query.includes('退相干') || query.includes('量子') || query.includes('相干')) {
+        switchTopology('decoherence');
+      } else if (query.includes('深空') || query.includes('存储') || query.includes('阻塞')) {
+        switchTopology('storage_stall');
+      } else if (query.includes('重路由') || query.includes('优化') || query.includes('自愈') || query.includes('修复')) {
+        executeSelfHealing();
+      } else {
+        addBotMessage(`已对指令「${esc(query)}」执行星网全向激光雷达扫描。当前中央引力透镜运行稳定，未见拓扑死锁。您可点击上方【预设拓扑】随时查看极端过载与自愈过程！`);
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 11. 毫秒级时间轴回溯
+    // -------------------------------------------------------------
+    let isPlaying = false;
+    let timelineAutoTriggered = false;
+    let timelineTimer = null;
+
+    function togglePlayTimeline() {
+      isPlaying = !isPlaying;
+      const icon = document.getElementById('icon-play');
+      if (isPlaying) {
+        icon.setAttribute('data-lucide', 'pause');
+        timelineTimer = setInterval(() => {
+          const slider = document.getElementById('timeline-slider');
+          let val = (parseInt(slider.value) + 1) % 100;
+          slider.value = val;
+          onTimelineChange(val);
+        }, 100 / playSpeed);
+      } else {
+        icon.setAttribute('data-lucide', 'play');
+        clearInterval(timelineTimer);
+      }
+      lucide.createIcons();
+    }
+
+    function onTimelineChange(val) {
+      const sec = (val * 0.1).toFixed(3);
+      document.getElementById('timeline-time').innerText = `00:${sec < 10 ? '0' + sec : sec}`;
+      if (timelineAutoTriggered && val < 30 && currentTopology === 'overload') {
+        timelineAutoTriggered = false;
+        switchTopology('normal');
+      }
+      if (val >= 37 && val <= 40 && currentTopology === 'normal') {
+        timelineAutoTriggered = true;
+        switchTopology('overload');
+      }
+    }
+
+    let playSpeed = 1;
+
+    function setSpeed(speed) {
+      playSpeed = speed;
+      [0.5, 1, 2].forEach(s => {
+        const btn = document.getElementById(`btn-speed-${s}`);
+        if (btn) {
+          btn.className = (s === speed)
+            ? 'px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300'
+            : 'px-2 py-0.5 rounded bg-white/5 hover:bg-white/10 text-slate-300';
+        }
+      });
+      if (isPlaying) {
+        clearInterval(timelineTimer);
+        timelineTimer = setInterval(() => {
+          const slider = document.getElementById('timeline-slider');
+          const val = (parseInt(slider.value) + 1) % 100;
+          slider.value = val;
+          onTimelineChange(val);
+        }, 100 / playSpeed);
+      }
+    }
+  </script>
+</body>
+</html>
